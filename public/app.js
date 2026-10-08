@@ -44,13 +44,27 @@ function renderReport(report) {
   report.checks.forEach((check) => {
     const card = document.createElement('div');
     card.className = `card ${check.status}`;
-    card.innerHTML = `
-      <div class="card-header">
-        <span class="badge ${check.status}">${check.status.toUpperCase()}</span>
-        <span class="card-title">${check.name}</span>
-      </div>
-      <p class="card-message">${check.message}</p>
-    `;
+
+    const header = document.createElement('div');
+    header.className = 'card-header';
+
+    const badge = document.createElement('span');
+    badge.className = `badge ${check.status}`;
+    badge.textContent = check.status.toUpperCase();
+
+    const title = document.createElement('span');
+    title.className = 'card-title';
+    title.textContent = check.name;
+
+    header.appendChild(badge);
+    header.appendChild(title);
+
+    const message = document.createElement('p');
+    message.className = 'card-message';
+    message.textContent = check.message;
+
+    card.appendChild(header);
+    card.appendChild(message);
     results.appendChild(card);
   });
 }

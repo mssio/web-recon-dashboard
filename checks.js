@@ -3,21 +3,18 @@ const tls = require('tls');
 
 async function checkDns(domain) {
   try {
-    let aRecords = [];
-    try {
-      aRecords = await dns.resolve4(domain);
-    } catch (_) {}
-    let aaaaRecords = [];
-    try {
-      aaaaRecords = await dns.resolve6(domain);
-    } catch (_) {}
+    const resolver = new dns.Resolver({ timeout: 2000, tries: 1 });
+    const [aResult, aaaaResult, mxResult] = await Promise.allSettled([
+      resolver.resolve4(domain),
+      resolver.resolve6(domain),
+      resolver.resolveMx(domain),
+    ]);
+    const aRecords = aResult.status === 'fulfilled' ? aResult.value : [];
+    const aaaaRecords = aaaaResult.status === 'fulfilled' ? aaaaResult.value : [];
+    const mxRecords = mxResult.status === 'fulfilled' ? mxResult.value : [];
     if (aRecords.length === 0 && aaaaRecords.length === 0) {
       return { name: 'DNS Resolution', status: 'fail', message: `Could not resolve any A/AAAA records for ${domain}` };
     }
-    let mxRecords = [];
-    try {
-      mxRecords = await dns.resolveMx(domain);
-    } catch (_) {}
     const firstAddr = aRecords[0] || aaaaRecords[0];
     if (mxRecords.length === 0) {
       return { name: 'DNS Resolution', status: 'warn', message: `A record found: ${firstAddr}, but no MX records` };
