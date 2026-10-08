@@ -1,8 +1,22 @@
 <!DOCTYPE html>
-<html>
-<head><title>Web Recon Dashboard</title></head>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Web Recon Dashboard</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
 <body>
-  <h1>Web Recon Dashboard</h1>
-  <p>Coming soon.</p>
+  <main>
+    <h1>Web Recon Dashboard</h1>
+    <p class="subtitle">Scan a domain you own or have permission to test.</p>
+    <form id="scan-form">
+      <input type="text" id="domain-input" placeholder="example.com" required />
+      <button type="submit">Scan</button>
+    </form>
+    <div id="error-banner" class="error-banner hidden"></div>
+    <div id="score-display" class="score-display hidden"></div>
+    <div id="results"></div>
+  </main>
+  <script src="app.js"></script>
 </body>
 </html>
