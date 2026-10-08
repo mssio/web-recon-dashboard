@@ -1,5 +1,6 @@
 const express = require('express');
 const path = require('path');
+const { runAllChecks } = require('./checks');
 
 const app = express();
 app.use(express.json());
@@ -20,7 +21,7 @@ function isValidDomain(domain) {
   return true;
 }
 
-app.post('/scan', (req, res) => {
+app.post('/scan', async (req, res) => {
   const { domain } = req.body || {};
   if (!domain) {
     return res.status(400).json({ error: 'domain is required' });
@@ -29,7 +30,8 @@ app.post('/scan', (req, res) => {
   if (!isValidDomain(normalized)) {
     return res.status(400).json({ error: 'invalid domain' });
   }
-  res.json({ domain: normalized, score: 0, checks: [] });
+  const report = await runAllChecks(normalized);
+  res.json(report);
 });
 
 const PORT = process.env.PORT || 3000;
