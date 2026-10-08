@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <title>Web Recon Dashboard</title>
   <link rel="stylesheet" href="style.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 </head>
 <body>
   <main>
@@ -15,6 +16,9 @@
     </form>
     <div id="error-banner" class="error-banner hidden"></div>
     <div id="score-display" class="score-display hidden"></div>
+    <div id="chart-container" class="chart-container hidden">
+      <canvas id="score-chart" width="400" height="400"></canvas>
+    </div>
     <div id="results"></div>
   </main>
   <script src="app.js"></script>
