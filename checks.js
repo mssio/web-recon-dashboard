@@ -15,7 +15,11 @@ async function checkDns(domain) {
     const details = {
       aRecords,
       aaaaRecords,
-      mxRecords: mxRecords.map((mx) => `${mx.exchange} (priority ${mx.priority})`),
+      mxRecords: mxRecords.map((mx) => (
+        mx.exchange && mx.exchange !== '.'
+          ? `${mx.exchange} (priority ${mx.priority})`
+          : 'null MX (domain accepts no mail)'
+      )),
     };
     if (aRecords.length === 0 && aaaaRecords.length === 0) {
       return { name: 'DNS Resolution', status: 'fail', message: `Could not resolve any A/AAAA records for ${domain}`, details };
