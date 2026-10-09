@@ -30,8 +30,15 @@ app.post('/scan', async (req, res) => {
   if (!isValidDomain(normalized)) {
     return res.status(400).json({ error: 'invalid domain' });
   }
-  const report = await runAllChecks(normalized);
-  res.json(report);
+  // The port probe is an active check: it only runs when the caller explicitly
+  // confirms they own the domain or have permission to test it.
+  const authorized = req.body.authorized === true;
+  try {
+    const report = await runAllChecks(normalized, { authorized });
+    res.json(report);
+  } catch (err) {
+    res.status(500).json({ error: 'scan failed' });
+  }
 });
 
 const PORT = process.env.PORT || 3000;

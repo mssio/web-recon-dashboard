@@ -39,6 +39,10 @@
       <input type="text" id="domain-input" placeholder="example.com" autocomplete="off" spellcheck="false" required />
       <button type="submit" id="scan-btn"><span class="btn-spinner" aria-hidden="true"></span><span id="scan-btn-label">Scan</span></button>
     </form>
+    <label class="consent">
+      <input type="checkbox" id="authorized-input" />
+      <span>I own this domain or have permission to test it (enables the active port probe)</span>
+    </label>
     <p class="hint">Only scan domains you own or have explicit permission to test.</p>
 
     <div id="error-banner" class="error-banner hidden" role="alert"></div>

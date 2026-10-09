@@ -1,5 +1,6 @@
 const form = document.getElementById('scan-form');
 const domainInput = document.getElementById('domain-input');
+const authorizedInput = document.getElementById('authorized-input');
 const scanBtn = document.getElementById('scan-btn');
 const scanBtnLabel = document.getElementById('scan-btn-label');
 const errorBanner = document.getElementById('error-banner');
@@ -19,6 +20,8 @@ const SCAN_MESSAGES = [
   'Checking the TLS certificate…',
   'Testing the HTTPS redirect…',
   'Looking for robots.txt and sitemap…',
+  'Fingerprinting the technology stack…',
+  'Checking common ports…',
 ];
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -39,7 +42,7 @@ form.addEventListener('submit', async (e) => {
     const res = await fetch('/scan', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ domain }),
+      body: JSON.stringify({ domain, authorized: authorizedInput.checked }),
     });
     let data = {};
     try {
@@ -212,7 +215,17 @@ function buildDetailsList(details) {
     const dt = document.createElement('dt');
     dt.textContent = formatDetailKey(key);
     const dd = document.createElement('dd');
-    dd.textContent = formatDetailValue(value);
+    if (Array.isArray(value) && value.length > 1) {
+      const ul = document.createElement('ul');
+      value.forEach((item) => {
+        const li = document.createElement('li');
+        li.textContent = String(item);
+        ul.appendChild(li);
+      });
+      dd.appendChild(ul);
+    } else {
+      dd.textContent = formatDetailValue(value);
+    }
     list.appendChild(dt);
     list.appendChild(dd);
   });
@@ -239,13 +252,15 @@ function formatDetailValue(value) {
   return String(value);
 }
 
-function renderChart(checks) {
-  if (typeof Chart === 'undefined') {
+function renderChart(allChecks) {
+  // Only scored checks (pass/warn/fail) belong on the radar; info/skip have no value.
+  const checks = allChecks.filter((c) => c.status in STATUS_VALUE);
+  if (typeof Chart === 'undefined' || checks.length < 3) {
     chartContainer.classList.add('hidden');
     return;
   }
   const labels = checks.map((c) => wrapLabel(c.name));
-  const data = checks.map((c) => STATUS_VALUE[c.status] ?? 0);
+  const data = checks.map((c) => STATUS_VALUE[c.status]);
 
   if (scoreChart) {
     scoreChart.destroy();

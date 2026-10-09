@@ -108,6 +108,8 @@ button:active:not(:disabled) { transform: translateY(0); }
 button:disabled { cursor: progress; filter: saturate(0.7); }
 .btn-spinner { display: none; width: 16px; height: 16px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.4); border-top-color: #fff; animation: spin 0.7s linear infinite; }
 button.loading .btn-spinner { display: inline-block; }
+.consent { display: flex; align-items: flex-start; gap: 0.5rem; justify-content: center; margin: 0.8rem auto 0; max-width: 560px; color: var(--muted); font-size: 0.82rem; cursor: pointer; }
+.consent input { accent-color: var(--accent); margin-top: 0.15rem; }
 .hint { color: var(--muted); font-size: 0.8rem; text-align: center; margin: 0.7rem 0 1.5rem; }
 
 .hidden { display: none !important; }
@@ -183,12 +185,16 @@ button.loading .btn-spinner { display: inline-block; }
 .card.pass { border-left-color: var(--pass); }
 .card.warn { border-left-color: var(--warn); }
 .card.fail { border-left-color: var(--fail); }
+.card.info { border-left-color: var(--accent); }
+.card.skip { border-left-color: #64748b; }
 .card-header { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.4rem; }
 .card-title { font-weight: 700; }
 .badge { font-size: 0.7rem; font-weight: 800; padding: 0.2rem 0.55rem; border-radius: 6px; letter-spacing: 0.04em; }
 .badge.pass { background: #166534; color: #bbf7d0; }
 .badge.warn { background: #854d0e; color: #fef08a; }
 .badge.fail { background: #991b1b; color: #fecaca; }
+.badge.info { background: #075985; color: #bae6fd; }
+.badge.skip { background: #334155; color: #cbd5e1; }
 .card-message { margin: 0; color: #cbd5e1; font-size: 0.92rem; }
 
 .details-list {
@@ -197,6 +203,8 @@ button.loading .btn-spinner { display: inline-block; }
 }
 .details-list dt { color: var(--muted); font-weight: 600; }
 .details-list dd { margin: 0; color: #cbd5e1; word-break: break-word; }
+.details-list ul { margin: 0; padding-left: 1.1rem; }
+.details-list li { margin: 0.1rem 0; }
 
 @keyframes fade-up { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
 

@@ -1,5 +1,7 @@
 const dns = require('dns').promises;
 const tls = require('tls');
+const { detectTech } = require('./fingerprint');
+const { checkPorts } = require('./ports');
 
 async function checkDns(domain) {
   try {
@@ -34,23 +36,120 @@ async function checkDns(domain) {
   }
 }
 
-async function checkHeaders(domain) {
-  const required = ['content-security-policy', 'strict-transport-security', 'x-frame-options', 'x-content-type-options'];
+const RECOMMENDED_HEADERS = ['content-security-policy', 'strict-transport-security', 'x-frame-options', 'x-content-type-options'];
+const OTHER_SECURITY_HEADERS = [
+  'referrer-policy',
+  'permissions-policy',
+  'cross-origin-opener-policy',
+  'cross-origin-resource-policy',
+  'cross-origin-embedder-policy',
+];
+const MAX_BODY_CHARS = 200000;
+
+function truncate(value, max = 140) {
+  return value.length > max ? `${value.slice(0, max)}…` : value;
+}
+
+// Read at most MAX_BODY_CHARS of the response body, then release the socket.
+async function readLimited(res) {
+  const reader = res.body && res.body.getReader();
+  if (!reader) return '';
+  const decoder = new TextDecoder();
+  let out = '';
+  try {
+    while (out.length < MAX_BODY_CHARS) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      out += decoder.decode(value, { stream: true });
+    }
+  } catch (_) {
+    // A truncated or aborted body is fine; we only fingerprint what we got.
+  }
+  reader.cancel().catch(() => {});
+  return out.slice(0, MAX_BODY_CHARS);
+}
+
+// One homepage request, shared by the header check and the tech fingerprint.
+async function fetchHome(domain) {
   try {
     const res = await fetch(`https://${domain}/`, { redirect: 'follow', signal: AbortSignal.timeout(5000) });
-    const present = required.filter((h) => res.headers.has(h));
-    const missing = required.filter((h) => !res.headers.has(h));
-    const details = { present, missing };
-    if (present.length === required.length) {
-      return { name: 'HTTP Security Headers', status: 'pass', message: 'All 4 recommended headers present', details };
-    }
-    if (present.length === 0) {
-      return { name: 'HTTP Security Headers', status: 'fail', message: 'None of the 4 recommended headers present', details };
-    }
-    return { name: 'HTTP Security Headers', status: 'warn', message: `${present.length} of 4 recommended headers present`, details };
+    const setCookies = typeof res.headers.getSetCookie === 'function' ? res.headers.getSetCookie() : [];
+    const body = await readLimited(res);
+    return { ok: true, domain, status: res.status, url: res.url, headers: res.headers, setCookies, body };
   } catch (err) {
-    return { name: 'HTTP Security Headers', status: 'fail', message: `Could not fetch https://${domain}/: ${err.message}`, details: {} };
+    return { ok: false, domain, error: err.message };
   }
+}
+
+function headerFindings(headers, setCookies) {
+  const findings = [];
+
+  const hsts = headers.get('strict-transport-security');
+  if (hsts) {
+    const maxAge = /max-age=(\d+)/i.exec(hsts);
+    if (!maxAge || Number(maxAge[1]) < 15552000) findings.push('HSTS max-age is shorter than 6 months');
+    if (!/includeSubDomains/i.test(hsts)) findings.push('HSTS does not cover subdomains (no includeSubDomains)');
+  }
+
+  const csp = headers.get('content-security-policy');
+  if (csp) {
+    if (/'unsafe-inline'/i.test(csp)) findings.push("CSP allows 'unsafe-inline'");
+    if (/'unsafe-eval'/i.test(csp)) findings.push("CSP allows 'unsafe-eval'");
+    if (/(^|[\s;])\*([\s;]|$)/.test(csp)) findings.push('CSP uses a wildcard (*) source');
+  }
+
+  const xcto = headers.get('x-content-type-options');
+  if (xcto && xcto.trim().toLowerCase() !== 'nosniff') findings.push('X-Content-Type-Options should be "nosniff"');
+
+  const xfo = headers.get('x-frame-options');
+  if (xfo && !/^(deny|sameorigin)$/i.test(xfo.trim())) findings.push(`X-Frame-Options has a non-standard value: ${truncate(xfo, 60)}`);
+
+  const server = headers.get('server');
+  if (server && /\d+\.\d+/.test(server)) findings.push(`Server header discloses a version: ${truncate(server, 80)}`);
+  const poweredBy = headers.get('x-powered-by');
+  if (poweredBy) findings.push(`X-Powered-By discloses the stack: ${truncate(poweredBy, 80)}`);
+
+  if (headers.get('access-control-allow-origin') === '*') findings.push('CORS allows any origin (Access-Control-Allow-Origin: *)');
+
+  setCookies.forEach((cookie) => {
+    const cookieName = cookie.split('=')[0].trim();
+    const lacking = [];
+    if (!/;\s*secure/i.test(cookie)) lacking.push('Secure');
+    if (!/;\s*httponly/i.test(cookie)) lacking.push('HttpOnly');
+    if (!/;\s*samesite/i.test(cookie)) lacking.push('SameSite');
+    if (lacking.length > 0) findings.push(`Cookie "${truncate(cookieName, 40)}" is missing: ${lacking.join(', ')}`);
+  });
+
+  return findings;
+}
+
+function checkHeaders(home) {
+  const name = 'HTTP Security Headers';
+  if (!home.ok) {
+    return { name, status: 'fail', message: `Could not fetch https://${home.domain}/: ${home.error}`, details: {} };
+  }
+
+  const present = RECOMMENDED_HEADERS.filter((h) => home.headers.has(h));
+  const missing = RECOMMENDED_HEADERS.filter((h) => !home.headers.has(h));
+  const otherPresent = OTHER_SECURITY_HEADERS.filter((h) => home.headers.has(h));
+
+  const details = {
+    statusCode: home.status,
+    finalUrl: home.url,
+    present: present.map((h) => `${h}: ${truncate(home.headers.get(h))}`),
+    missing,
+    otherSecurityHeaders: otherPresent.map((h) => `${h}: ${truncate(home.headers.get(h))}`),
+    notFound: OTHER_SECURITY_HEADERS.filter((h) => !home.headers.has(h)),
+    findings: headerFindings(home.headers, home.setCookies),
+  };
+
+  if (present.length === RECOMMENDED_HEADERS.length) {
+    return { name, status: 'pass', message: 'All 4 recommended headers present', details };
+  }
+  if (present.length === 0) {
+    return { name, status: 'fail', message: 'None of the 4 recommended headers present', details };
+  }
+  return { name, status: 'warn', message: `${present.length} of 4 recommended headers present`, details };
 }
 
 function checkTls(domain) {
@@ -127,21 +226,34 @@ async function checkRobotsSitemap(domain) {
   return { name: 'robots.txt / sitemap.xml', status: 'fail', message: 'Neither robots.txt nor sitemap.xml found', details };
 }
 
-async function runAllChecks(domain) {
+const SCORED = { pass: 1, warn: 0.5, fail: 0 };
+
+// A check must never take the whole scan down: turn any throw into a result.
+async function safely(name, fn) {
+  try {
+    return await fn();
+  } catch (err) {
+    return { name, status: 'fail', message: `Check crashed: ${err.message}`, details: {} };
+  }
+}
+
+async function runAllChecks(domain, { authorized = false } = {}) {
+  const home = fetchHome(domain);
   const results = await Promise.all([
-    checkDns(domain),
-    checkHeaders(domain),
-    checkTls(domain),
-    checkHttpsRedirect(domain),
-    checkRobotsSitemap(domain),
+    safely('DNS Resolution', () => checkDns(domain)),
+    safely('HTTP Security Headers', async () => checkHeaders(await home)),
+    safely('TLS Certificate', () => checkTls(domain)),
+    safely('HTTPS Redirect', () => checkHttpsRedirect(domain)),
+    safely('robots.txt / sitemap.xml', () => checkRobotsSitemap(domain)),
+    safely('Technology Stack', async () => detectTech(await home)),
+    safely('Open Ports & Services', () => checkPorts(domain, { authorized })),
   ]);
-  const points = results.reduce((sum, r) => {
-    if (r.status === 'pass') return sum + 1;
-    if (r.status === 'warn') return sum + 0.5;
-    return sum;
-  }, 0);
-  const score = Math.round((points / results.length) * 100);
+
+  // Only pass/warn/fail checks are scored; 'info' and 'skip' are shown but not counted.
+  const scored = results.filter((r) => r.status in SCORED);
+  const points = scored.reduce((sum, r) => sum + SCORED[r.status], 0);
+  const score = scored.length === 0 ? 0 : Math.round((points / scored.length) * 100);
   return { domain, score, checks: results };
 }
 
-module.exports = { checkDns, checkHeaders, checkTls, checkHttpsRedirect, checkRobotsSitemap, runAllChecks };
+module.exports = { checkDns, fetchHome, checkHeaders, checkTls, checkHttpsRedirect, checkRobotsSitemap, runAllChecks };
