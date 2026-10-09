@@ -15,7 +15,9 @@
     <div class="bg-orb orb-b"></div>
   </div>
 
-  <main>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <main id="main">
     <header class="hero">
       <div class="radar-rings" aria-hidden="true"><span></span><span></span><span></span></div>
       <svg class="logo" viewBox="0 0 64 64" role="img" aria-label="Web Recon Dashboard logo">
@@ -35,29 +37,40 @@
       <p class="subtitle">Point it at a domain. Get a security health report in seconds.</p>
     </header>
 
-    <form id="scan-form" class="scan-form">
-      <input type="text" id="domain-input" placeholder="example.com" autocomplete="off" spellcheck="false" required />
-      <button type="submit" id="scan-btn"><span class="btn-spinner" aria-hidden="true"></span><span id="scan-btn-label">Scan</span></button>
-    </form>
-    <label class="consent">
-      <input type="checkbox" id="authorized-input" />
-      <span>I own this domain or have permission to test it (enables the active port probe)</span>
-    </label>
-    <p class="hint">Only scan domains you own or have explicit permission to test.</p>
+    <section class="search" aria-label="Scan a domain">
+      <form id="scan-form" class="scan-form" role="search">
+        <label class="sr-only" for="domain-input">Domain to scan</label>
+        <input type="text" id="domain-input" placeholder="example.com" autocomplete="off" autocapitalize="none" spellcheck="false" required />
+        <button type="submit" id="scan-btn"><span class="btn-spinner" aria-hidden="true"></span><span id="scan-btn-label">Scan</span></button>
+      </form>
+      <label class="consent">
+        <input type="checkbox" id="authorized-input" />
+        <span>I own this domain or have permission to test it (enables the active port probe)</span>
+      </label>
+      <p class="hint">Only scan domains you own or have explicit permission to test.</p>
 
-    <div id="error-banner" class="error-banner hidden" role="alert"></div>
+      <div id="error-banner" class="error-banner hidden" role="alert"></div>
 
-    <div id="scan-status" class="scan-status hidden" role="status" aria-live="polite">
-      <div class="scan-radar" aria-hidden="true"><span class="scan-sweep"></span></div>
-      <p id="scan-status-text">Starting scan…</p>
-      <div class="scan-bar" aria-hidden="true"><span></span></div>
-    </div>
+      <div id="scan-status" class="scan-status hidden" role="status" aria-live="polite">
+        <div class="scan-radar" aria-hidden="true"><span class="scan-sweep"></span></div>
+        <p id="scan-status-text">Starting scan…</p>
+        <div class="scan-bar" aria-hidden="true"><span></span></div>
+      </div>
+    </section>
 
-    <div id="score-display" class="score-panel hidden"></div>
-    <div id="chart-container" class="chart-container hidden">
-      <div class="chart-box"><canvas id="score-chart"></canvas></div>
-    </div>
-    <div id="results"></div>
+    <p id="sr-status" class="sr-only" aria-live="polite"></p>
+
+    <section class="report" aria-label="Scan results">
+      <div id="overview" class="overview">
+        <div id="score-display" class="score-panel hidden"></div>
+        <div id="chart-container" class="chart-container hidden">
+          <div class="chart-box"><canvas id="score-chart" role="img" aria-label="Radar chart of scored check results"></canvas></div>
+        </div>
+      </div>
+
+      <h2 id="findings-title" class="section-title hidden">Detailed findings</h2>
+      <div id="results" class="results-grid"></div>
+    </section>
   </main>
   <script src="app.js"></script>
 </body>

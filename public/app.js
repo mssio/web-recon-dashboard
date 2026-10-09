@@ -10,6 +10,9 @@ const scoreDisplay = document.getElementById('score-display');
 const results = document.getElementById('results');
 const chartContainer = document.getElementById('chart-container');
 const chartCanvas = document.getElementById('score-chart');
+const overview = document.getElementById('overview');
+const findingsTitle = document.getElementById('findings-title');
+const srStatus = document.getElementById('sr-status');
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const STATUS_VALUE = { pass: 100, warn: 50, fail: 0 };
@@ -33,6 +36,9 @@ form.addEventListener('submit', async (e) => {
   errorBanner.classList.add('hidden');
   scoreDisplay.classList.add('hidden');
   chartContainer.classList.add('hidden');
+  overview.classList.remove('two-col');
+  findingsTitle.classList.add('hidden');
+  srStatus.textContent = '';
   results.innerHTML = '';
 
   const domain = domainInput.value.trim();
@@ -140,6 +146,7 @@ function renderScore(report) {
   info.appendChild(label);
   info.appendChild(verdict);
   info.appendChild(domain);
+  info.appendChild(buildChips(report.checks));
 
   scoreDisplay.appendChild(wrap);
   scoreDisplay.appendChild(info);
@@ -152,6 +159,28 @@ function renderScore(report) {
   if (!reduceMotion) {
     countUp(number, report.score, 1200);
   }
+}
+
+const CHIP_LABELS = [
+  ['pass', (n) => `${n} passed`],
+  ['warn', (n) => `${n} ${n === 1 ? 'warning' : 'warnings'}`],
+  ['fail', (n) => `${n} failed`],
+  ['info', (n) => `${n} informational`],
+  ['skip', (n) => `${n} skipped`],
+];
+
+function buildChips(checks) {
+  const chips = document.createElement('div');
+  chips.className = 'chips';
+  CHIP_LABELS.forEach(([status, label]) => {
+    const count = checks.filter((c) => c.status === status).length;
+    if (count === 0) return;
+    const chip = document.createElement('span');
+    chip.className = `chip ${status}`;
+    chip.textContent = label(count);
+    chips.appendChild(chip);
+  });
+  return chips;
 }
 
 function countUp(el, target, duration) {
@@ -168,6 +197,8 @@ function countUp(el, target, duration) {
 function renderReport(report) {
   renderScore(report);
   renderChart(report.checks);
+  findingsTitle.classList.remove('hidden');
+  srStatus.textContent = `Scan complete for ${report.domain}. Score ${report.score} out of 100, ${scoreTier(report.score).verdict}.`;
 
   results.innerHTML = '';
   report.checks.forEach((check, index) => {
@@ -182,7 +213,7 @@ function renderReport(report) {
     badge.className = `badge ${check.status}`;
     badge.textContent = check.status.toUpperCase();
 
-    const title = document.createElement('span');
+    const title = document.createElement('h3');
     title.className = 'card-title';
     title.textContent = check.name;
 
@@ -257,8 +288,10 @@ function renderChart(allChecks) {
   const checks = allChecks.filter((c) => c.status in STATUS_VALUE);
   if (typeof Chart === 'undefined' || checks.length < 3) {
     chartContainer.classList.add('hidden');
+    overview.classList.remove('two-col');
     return;
   }
+  overview.classList.add('two-col');
   const labels = checks.map((c) => wrapLabel(c.name));
   const data = checks.map((c) => STATUS_VALUE[c.status]);
 

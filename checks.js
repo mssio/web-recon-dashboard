@@ -140,8 +140,9 @@ function checkHeaders(home) {
     missing,
     otherSecurityHeaders: otherPresent.map((h) => `${h}: ${truncate(home.headers.get(h))}`),
     notFound: OTHER_SECURITY_HEADERS.filter((h) => !home.headers.has(h)),
-    findings: headerFindings(home.headers, home.setCookies),
   };
+  const findings = headerFindings(home.headers, home.setCookies);
+  if (findings.length > 0) details.findings = findings;
 
   if (present.length === RECOMMENDED_HEADERS.length) {
     return { name, status: 'pass', message: 'All 4 recommended headers present', details };
